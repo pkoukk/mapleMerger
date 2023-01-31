@@ -1,6 +1,7 @@
 ﻿using System;
 using MapleLib.WzLib;
 using MapleLib.WzLib.Util;
+using MapleLib.WzLib.WzProperties;
 
 namespace WzMerger
 {
@@ -34,22 +35,59 @@ namespace WzMerger
 
         public void Merge(string path)
         {
+            var ext = Path.GetExtension(path);
+            if (ext == ".txt")
+            {
+                var paths = File.ReadAllLines(path);
+                foreach (var p in paths)
+                {
+                    if (!pathCheck(path))
+                    {
+                        Console.WriteLine("path [" + p + "] not valid in selected wz file,skip");
+                        continue;
+                    }
+                    mergePath(p);
+                }
+            }
+            else
+            {
+                if (!pathCheck(path))
+                {
+                    throw new Exception("path not valid in selected wz file");
+                }
+                mergePath(path);
+            }
+        }
+
+        bool pathCheck(string path)
+        {
             var baseObj = this.baseFile.GetObjectFromPath(path, true);
             if (baseObj == null)
             {
-                throw new Exception("base file does not have this object, skip");
+                return false;
             }
             var overrideObj = this.overrideFile.GetObjectFromPath(path, true);
             if (overrideObj == null)
             {
-                throw new Exception("override file does not have this object, skip");
+                return false;
             }
+
+            return true;
+        }
+
+        void mergePath(string path)
+        {
+            var baseObj = this.baseFile.GetObjectFromPath(path, true);
+            var overrideObj = this.overrideFile.GetObjectFromPath(path, true);
+
+
             replaceObject(baseObj, overrideObj);
         }
 
         public void Save(string path)
+            
         {
-            this.baseFile.SaveToDisk(path, true, this.baseFile.MapleVersion);
+            this.baseFile.SaveToDisk(path, false, this.baseFile.MapleVersion);
         }
 
         void replaceObject(WzObject wz, WzObject wz1)
@@ -252,10 +290,34 @@ namespace WzMerger
             {
                 return false;
             }
-            if (prop1.WzValue != prop2.WzValue)
+
+            if (prop1.PropertyType == WzPropertyType.SubProperty)
             {
-                return false;
+                var subP1 = (WzSubProperty)prop1;
+                var subP2 = (WzSubProperty)prop2;
+                if (subP1.WzProperties.Count != subP2.WzProperties.Count)
+                {
+                    return false;
+                }
+                var dict1 = subP1.WzProperties.ToDictionary(x => x.Name);
+                var dict2 = subP2.WzProperties.ToDictionary(x => x.Name);
+                foreach (var key in dict1.Keys)
+                {
+                    if (!dict2.ContainsKey(key))
+                    {
+                        return false;
+                    }
+                    if (!compareProperty(dict1[key], dict2[key]))
+                    {
+                        return false;
+                    }
+                }
             }
+            else if (prop1.PropertyType == WzPropertyType.String)
+            {
+                return prop1.WzValue == prop2.WzValue;
+            }
+
             return true;
         }
 
@@ -268,6 +330,28 @@ namespace WzMerger
             if (prop1.PropertyType != prop2.PropertyType)
             {
                 throw new Exception("type not match");
+            }
+            if (prop1.PropertyType == WzPropertyType.SubProperty)
+            {
+                var subP1 = (WzSubProperty)prop1;
+                var subP2 = (WzSubProperty)prop2;
+                var dict1 = subP1.WzProperties.ToDictionary(x => x.Name);
+                var dict2 = subP2.WzProperties.ToDictionary(x => x.Name);
+                foreach (var key in dict1.Keys)
+                {
+                    if (!dict2.ContainsKey(key) || compareProperty(dict1[key], dict2[key]))
+                    {
+                        continue;
+                    }
+                    replaceProperty(dict1[key], dict2[key]);
+                }
+                foreach (var key in dict2.Keys)
+                {
+                    if (!dict1.ContainsKey(key))
+                    {
+                        subP1.AddProperty(dict2[key]);
+                    }
+                }
             }
             if (prop1.PropertyType != WzPropertyType.String)
             {
