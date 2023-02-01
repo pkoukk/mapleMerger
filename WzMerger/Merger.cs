@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text.RegularExpressions;
 using MapleLib.WzLib;
 using MapleLib.WzLib.Util;
 using MapleLib.WzLib.WzProperties;
@@ -7,13 +8,13 @@ namespace WzMerger
 {
     public class Merger
     {
-        WzFile baseFile;
-        WzFile overrideFile;
+        string baseDir;
+        string overrideDir;
 
-        public Merger(string baseWz, string overrideWz)
+        public Merger(string baseDir, string overrideDir)
         {
-            this.baseFile = loadWzFile(baseWz);
-            this.overrideFile = loadWzFile(overrideWz);
+            this.baseDir = baseDir;
+            this.overrideDir = overrideDir;
         }
 
         private WzFile loadWzFile(string wzPath)
@@ -33,40 +34,48 @@ namespace WzMerger
 
         }
 
-        public void Merge(string path)
+        public void Merge(string path, string savePath)
         {
-            var ext = Path.GetExtension(path);
-            if (ext == ".txt")
+            var paths = File.ReadAllLines(path);
+            var wzFileDict = new Dictionary<string, List<string>>();
+            foreach (var p in paths)
             {
-                var paths = File.ReadAllLines(path);
-                foreach (var p in paths)
+                var split = p.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                if (!wzFileDict.ContainsKey(split[0]))
                 {
-                    if (!pathCheck(path))
+                    wzFileDict.Add(split[0], new List<string>());
+                }
+                wzFileDict[split[0]].Add(p);
+            }
+            foreach (var pair in wzFileDict)
+            {
+                Console.WriteLine("start to merge " + pair.Key + " ...");
+                var baseFile = loadWzFile(Path.Join(this.baseDir, pair.Key));
+                var overrideFile = loadWzFile(Path.Join(this.overrideDir, pair.Key));
+                var pathsToMerge = pair.Value;
+                foreach (var pathToMerge in pathsToMerge)
+                {
+                    if (!pathCheck(pathToMerge, baseFile, overrideFile))
                     {
-                        Console.WriteLine("path [" + p + "] not valid in selected wz file,skip");
+                        Console.WriteLine("path " + pathToMerge + " not found skip");
                         continue;
                     }
-                    mergePath(p);
+                    mergePath(pathToMerge, baseFile, overrideFile);
                 }
-            }
-            else
-            {
-                if (!pathCheck(path))
-                {
-                    throw new Exception("path not valid in selected wz file");
-                }
-                mergePath(path);
+
+                Console.WriteLine("merge finished, saving to disk ...");
+                baseFile.SaveToDisk(Path.Join(savePath, pair.Key), false, baseFile.MapleVersion);
             }
         }
 
-        bool pathCheck(string path)
+        bool pathCheck(string path, WzFile baseFile, WzFile overrideFile)
         {
-            var baseObj = this.baseFile.GetObjectFromPath(path, true);
+            var baseObj = baseFile.GetObjectFromPath(path, true);
             if (baseObj == null)
             {
                 return false;
             }
-            var overrideObj = this.overrideFile.GetObjectFromPath(path, true);
+            var overrideObj = overrideFile.GetObjectFromPath(path, true);
             if (overrideObj == null)
             {
                 return false;
@@ -75,20 +84,15 @@ namespace WzMerger
             return true;
         }
 
-        void mergePath(string path)
+        void mergePath(string path, WzFile baseFile, WzFile overrideFile)
         {
-            var baseObj = this.baseFile.GetObjectFromPath(path, true);
-            var overrideObj = this.overrideFile.GetObjectFromPath(path, true);
+            var baseObj = baseFile.GetObjectFromPath(path, true);
+            var overrideObj = overrideFile.GetObjectFromPath(path, true);
 
-            
+
             replaceObject(baseObj, overrideObj);
         }
 
-        public void Save(string path)
-            
-        {
-            this.baseFile.SaveToDisk(path, false, this.baseFile.MapleVersion);
-        }
 
         void replaceObject(WzObject wz, WzObject wz1)
         {
@@ -257,10 +261,6 @@ namespace WzMerger
             {
                 throw new Exception("name not match");
             }
-            if (img1.WzProperties.Count != imgs.WzProperties.Count)
-            {
-                throw new Exception("property count not match");
-            }
             img1.Changed = true;
             var dict1 = img1.WzProperties.ToDictionary(x => x.Name);
             var dict2 = imgs.WzProperties.ToDictionary(x => x.Name);
@@ -330,7 +330,9 @@ namespace WzMerger
             }
             if (prop1.PropertyType != prop2.PropertyType)
             {
-                throw new Exception("type not match");
+                Console.WriteLine("prop type not match {0} {1} {2}", prop1.Name, prop1.PropertyType, prop2.PropertyType);
+                return;
+                // throw new Exception("type not match");
             }
             if (prop1.PropertyType == WzPropertyType.SubProperty)
             {
@@ -358,14 +360,23 @@ namespace WzMerger
             {
                 return;
             }
-            if (prop1.WzValue != prop2.WzValue)
+            if (prop1.WzValue != prop2.WzValue && prop2.GetString().Any(x => Util.IsChinese(x)))
             {
                 prop1.SetValue(prop2.WzValue);
-                
+
             }
         }
+
+
     }
 
-
+    public static class Util
+    {
+        private static readonly Regex cjkCharRegex = new Regex(@"\p{IsCJKUnifiedIdeographs}");
+        public static bool IsChinese(this char c)
+        {
+            return cjkCharRegex.IsMatch(c.ToString());
+        }
+    }
 }
 

@@ -4,45 +4,42 @@ using MapleLib.WzLib.Util;
 
 static void Merge()
 {
-    Console.WriteLine("Input the source wz file you want to use");
+    Console.WriteLine("Input the base wz directory you want to use");
     string? sourceWzPath = Console.ReadLine();
     if (sourceWzPath == null || sourceWzPath == "")
     {
         //Console.WriteLine("empty file path");
         //return;
-        sourceWzPath = "./files/base/String.wz";
+        sourceWzPath = "/Users/yohn/workspace/playground/ms/data/wz/hvn";
     }
-    Console.WriteLine("Input the override wz file you want to use");
+    Console.WriteLine("Input the override wz directory you want to use");
     string? overrideWzPath = Console.ReadLine();
     if (overrideWzPath == null || overrideWzPath == "")
     {
         // Console.WriteLine("empty file path");
         // return;
-        overrideWzPath = "./files/override/String.wz";
+        overrideWzPath = "/Users/yohn/workspace/playground/ms/data/wz/079sdo";
     }
 
     try
     {
-        Merger merger = new Merger(sourceWzPath, overrideWzPath);
-        Console.WriteLine("wz file loaded");
-        Console.WriteLine("Input the wz path or txt path file you want to merge");
+        Console.WriteLine("Input the list file you want to merge");
         string? path = Console.ReadLine();
         if (path == null || path == "")
         {
             // Console.WriteLine("empty path");
             // return;
-            path = "String.wz/Etc.img";
+            path = "/Users/yohn/workspace/playground/ms/data/others/b.txt";
         }
-        merger.Merge(path);
-        Console.WriteLine("merge finished");
-        Console.WriteLine("Input the path you want to save");
+        Console.WriteLine("Input the directory you want to save");
         string? savePath = Console.ReadLine();
         if (savePath == null || savePath == "")
         {
-            savePath = "./files/target/String.wz";
+            savePath = "/Users/yohn/workspace/playground/ms/data/wz/merged";
         }
-        merger.Save(savePath);
-        Console.WriteLine("save complete");
+        Merger merger = new Merger(sourceWzPath, overrideWzPath);
+        merger.Merge(path, savePath);
+        Console.WriteLine("merge finished");
     }
     catch (Exception ex)
     {
