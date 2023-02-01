@@ -80,7 +80,7 @@ namespace WzMerger
             var baseObj = this.baseFile.GetObjectFromPath(path, true);
             var overrideObj = this.overrideFile.GetObjectFromPath(path, true);
 
-
+            
             replaceObject(baseObj, overrideObj);
         }
 
@@ -261,6 +261,7 @@ namespace WzMerger
             {
                 throw new Exception("property count not match");
             }
+            img1.Changed = true;
             var dict1 = img1.WzProperties.ToDictionary(x => x.Name);
             var dict2 = imgs.WzProperties.ToDictionary(x => x.Name);
             foreach (var key in dict1.Keys)
@@ -360,6 +361,7 @@ namespace WzMerger
             if (prop1.WzValue != prop2.WzValue)
             {
                 prop1.SetValue(prop2.WzValue);
+                
             }
         }
     }
